@@ -1,4 +1,4 @@
-/* Copyright (C) Red Hat 2023 */
+/* Copyright (C) Red Hat 2023-2024 */
 package com.redhat.runtimes.inventory.events;
 
 import static com.redhat.runtimes.inventory.events.Utils.*;
@@ -7,19 +7,19 @@ import com.redhat.runtimes.inventory.models.EapInstance;
 import com.redhat.runtimes.inventory.models.InsightsMessage;
 import com.redhat.runtimes.inventory.models.JvmInstance;
 import com.redhat.runtimes.inventory.models.UpdateInstance;
+import com.redhat.runtimes.inventory.persistence.JvmInstanceManager;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.quarkus.logging.Log;
+import io.smallrye.mutiny.Uni;
 import io.smallrye.reactive.messaging.annotations.Blocking;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,7 +31,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.util.*;
-import java.util.concurrent.CompletionStage;
 import java.util.zip.GZIPInputStream;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -62,6 +61,8 @@ public class EventConsumer {
 
   @Inject Session session;
 
+  @Inject JvmInstanceManager jvmManager;
+
   private static HttpClient httpClient;
 
   private ArchiveAnnouncementParser jsonParser = new ArchiveAnnouncementParser();
@@ -85,9 +86,7 @@ public class EventConsumer {
 
   @Incoming(INGRESS_CHANNEL)
   @Blocking
-  @ActivateRequestContext
-  @Transactional
-  public CompletionStage<Void> processMainFlow(Message<String> message) {
+  public Uni<Void> processMainFlow(Message<String> message) {
     // This timer will have dynamic tag values based on the action parsed from the received message.
     Timer.Sample consumedTimer = Timer.start(registry);
     var payload = message.getPayload();
@@ -117,14 +116,12 @@ public class EventConsumer {
       consumedTimer.stop(registry.timer(CONSUMED_TIMER_NAME));
     }
 
-    return message.ack();
+    return Uni.createFrom().voidItem();
   }
 
   @Incoming(EGG_CHANNEL)
   @Blocking
-  @ActivateRequestContext
-  @Transactional
-  public CompletionStage<Void> processEggFlow(Message<String> message) {
+  public Uni<Void> processEggFlow(Message<String> message) {
     // This timer will have dynamic tag values based on the action parsed from the received message.
     Timer.Sample consumedTimer = Timer.start(registry);
     var payload = message.getPayload();
@@ -157,10 +154,9 @@ public class EventConsumer {
       consumedTimer.stop(registry.timer(CONSUMED_TIMER_NAME));
     }
 
-    return message.ack();
+    return Uni.createFrom().voidItem();
   }
 
-  @Transactional
   public void processMessage(ArchiveAnnouncement announce, String json) {
     // Needs to be visible in the catch block
     JvmInstance inst = null;
@@ -188,10 +184,7 @@ public class EventConsumer {
       }
 
       if (inst != null) {
-        Log.debugf("About to persist: %s", inst);
-        entityManager.persist(inst);
-        entityManager.flush();
-        session.evict(inst);
+        jvmManager.persist(inst);
       }
     } catch (Throwable t) {
       processingExceptionCounter.increment();

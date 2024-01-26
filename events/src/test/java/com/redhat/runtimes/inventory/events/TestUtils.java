@@ -1,4 +1,4 @@
-/* Copyright (C) Red Hat 2023 */
+/* Copyright (C) Red Hat 2023-2024 */
 package com.redhat.runtimes.inventory.events;
 
 import static org.awaitility.Awaitility.await;
@@ -93,19 +93,13 @@ public final class TestUtils {
 
   @Transactional
   public static void clearTables(EntityManager entityManager) {
-    // Order is important here
-    entityManager.createNativeQuery("DELETE FROM jvm_instance_jar_hash").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_instance_module_jar_hash").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_deployment_archive_jar_hash").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM jar_hash").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM jvm_instance").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_deployment").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_configuration_eap_extension").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_configuration").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_instance").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_configuration_deployments").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_configuration_subsystems").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_extension").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM eap_extension_subsystems").executeUpdate();
+    entityManager
+        .createNativeQuery(
+            "TRUNCATE jvm_instance_jar_hash, eap_instance_jar_hash, eap_instance_module_jar_hash,"
+                + " eap_deployment_archive_jar_hash, jar_hash, jvm_instance, eap_deployment,"
+                + " eap_configuration_eap_extension, eap_configuration, eap_instance,"
+                + " eap_configuration_deployments, eap_configuration_subsystems, eap_extension,"
+                + " eap_extension_subsystems")
+        .executeUpdate();
   }
 }

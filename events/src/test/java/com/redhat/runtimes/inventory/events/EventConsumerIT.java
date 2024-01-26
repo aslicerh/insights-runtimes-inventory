@@ -1,4 +1,4 @@
-/* Copyright (C) Red Hat 2023 */
+/* Copyright (C) Red Hat 2023-2024 */
 package com.redhat.runtimes.inventory.events;
 
 import static com.redhat.runtimes.inventory.events.EventConsumer.CONSUMED_TIMER_NAME;

@@ -14,7 +14,6 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.quarkus.logging.Log;
-import io.smallrye.mutiny.Uni;
 import io.smallrye.reactive.messaging.annotations.Blocking;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,6 +30,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.util.*;
+import java.util.concurrent.CompletionStage;
 import java.util.zip.GZIPInputStream;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -86,7 +86,7 @@ public class EventConsumer {
 
   @Incoming(INGRESS_CHANNEL)
   @Blocking
-  public Uni<Void> processMainFlow(Message<String> message) {
+  public CompletionStage<Void> processMainFlow(Message<String> message) {
     // This timer will have dynamic tag values based on the action parsed from the received message.
     Timer.Sample consumedTimer = Timer.start(registry);
     var payload = message.getPayload();
@@ -116,12 +116,12 @@ public class EventConsumer {
       consumedTimer.stop(registry.timer(CONSUMED_TIMER_NAME));
     }
 
-    return Uni.createFrom().voidItem();
+    return message.ack();
   }
 
   @Incoming(EGG_CHANNEL)
   @Blocking
-  public Uni<Void> processEggFlow(Message<String> message) {
+  public CompletionStage<Void> processEggFlow(Message<String> message) {
     // This timer will have dynamic tag values based on the action parsed from the received message.
     Timer.Sample consumedTimer = Timer.start(registry);
     var payload = message.getPayload();
@@ -154,7 +154,7 @@ public class EventConsumer {
       consumedTimer.stop(registry.timer(CONSUMED_TIMER_NAME));
     }
 
-    return Uni.createFrom().voidItem();
+    return message.ack();
   }
 
   public void processMessage(ArchiveAnnouncement announce, String json) {
